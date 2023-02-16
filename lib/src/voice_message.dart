@@ -1,5 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+
 // ignore: library_prefixes
 import 'package:just_audio/just_audio.dart' as jsAudio;
 import 'package:voice_message_package/src/contact_noise.dart';
@@ -18,7 +19,7 @@ class VoiceMessage extends StatefulWidget {
     Key? key,
     required this.audioSrc,
     required this.me,
-    this.noiseCount = 27,
+    this.noiseCount = 35,
     this.meBgColor = AppColors.pink,
     this.contactBgColor = const Color(0xffffffff),
     this.contactFgColor = AppColors.pink,
@@ -26,7 +27,10 @@ class VoiceMessage extends StatefulWidget {
     this.contactPlayIconColor = Colors.black26,
     this.meFgColor = const Color(0xffffffff),
     this.played = false,
+    this.timeSpace,
     this.onPlay,
+    this.onStop,
+    this.playButtonEnabled = false,
   }) : super(key: key);
 
   final String audioSrc;
@@ -39,6 +43,9 @@ class VoiceMessage extends StatefulWidget {
       contactPlayIconColor;
   final bool played, me;
   Function()? onPlay;
+  final Widget? timeSpace;
+  final Function()? onStop;
+  final bool playButtonEnabled;
 
   @override
   _VoiceMessageState createState() => _VoiceMessageState();
@@ -47,7 +54,7 @@ class VoiceMessage extends StatefulWidget {
 class _VoiceMessageState extends State<VoiceMessage>
     with SingleTickerProviderStateMixin {
   final AudioPlayer _player = AudioPlayer();
-  final double maxNoiseHeight = 6.w(), noiseWidth = 26.5.w();
+  final double maxNoiseHeight = 6.w(), noiseWidth = 35.5.w();
   Duration? _audioDuration;
   double maxDurationForSlider = .0000001;
   bool _isPlaying = false, x2 = false, _audioConfigurationDone = false;
@@ -66,33 +73,30 @@ class _VoiceMessageState extends State<VoiceMessage>
 
   Container _sizerChild(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: .8.w()),
-      constraints: BoxConstraints(maxWidth: 100.w() * .7),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(6.w()),
-          bottomLeft:
-              widget.me ? Radius.circular(6.w()) : Radius.circular(2.w()),
-          bottomRight:
-              !widget.me ? Radius.circular(6.w()) : Radius.circular(1.2.w()),
-          topRight: Radius.circular(6.w()),
-        ),
-        color: widget.me ? widget.meBgColor : widget.contactBgColor,
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 4.w(), vertical: 2.8.w()),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _playButton(context),
-            SizedBox(width: 3.w()),
-            _durationWithNoise(context),
-            SizedBox(width: 2.2.w()),
+      // padding: EdgeInsets.symmetric(horizontal: .8.w()),
+      constraints: BoxConstraints(maxWidth: 100.w() * .6),
+      // decoration: BoxDecoration(
+      //   borderRadius: BorderRadius.only(
+      //     topLeft: Radius.circular(6.w()),
+      //     bottomLeft:
+      //         widget.me ? Radius.circular(6.w()) : Radius.circular(2.w()),
+      //     bottomRight:
+      //         !widget.me ? Radius.circular(6.w()) : Radius.circular(1.2.w()),
+      //     topRight: Radius.circular(6.w()),
+      //   ),
+      // color: widget.me ? widget.meBgColor : widget.contactBgColor,
+      // ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _playButton(context),
+          SizedBox(width: 3.w()),
+          _durationWithNoise(context),
+          SizedBox(width: 2.2.w()),
 
-            /// x2 button will be added here.
-            // _speed(context),
-          ],
-        ),
+          /// x2 button will be added here.
+          // _speed(context),
+        ],
       ),
     );
   }
@@ -130,27 +134,33 @@ class _VoiceMessageState extends State<VoiceMessage>
         ),
       );
 
-  _durationWithNoise(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _noise(context),
-          SizedBox(height: .3.w()),
-          Row(
-            children: [
-              if (!widget.played)
-                Widgets.circle(context, 1.w(),
-                    widget.me ? widget.meFgColor : widget.contactFgColor),
-              SizedBox(width: 1.2.w()),
-              Text(
-                _remaingTime,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: widget.me ? widget.meFgColor : widget.contactFgColor,
+  _durationWithNoise(BuildContext context) => Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _noise(context),
+            SizedBox(height: .3.w()),
+            Row(
+              children: [
+                if (!widget.played)
+                  Widgets.circle(context, 1.w(),
+                      widget.me ? widget.meFgColor : widget.contactFgColor),
+                SizedBox(width: 1.2.w()),
+                Text(
+                  _remaingTime,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: widget.me
+                        ? widget.meFgColor
+                        : widget.contactPlayIconColor,
+                  ),
                 ),
-              )
-            ],
-          ),
-        ],
+                const Spacer(),
+                if (widget.timeSpace != null) widget.timeSpace!,
+              ],
+            ),
+          ],
+        ),
       );
 
   /// Noise widget of audio.
@@ -264,6 +274,9 @@ class _VoiceMessageState extends State<VoiceMessage>
         _controller!.reset();
         _isPlaying = false;
         x2 = false;
+        if (widget.onStop != null) {
+          widget.onStop!();
+        }
         setState(() {});
       }
     });
@@ -290,7 +303,14 @@ class _VoiceMessageState extends State<VoiceMessage>
   void _changePlayingStatus() async {
     if (widget.onPlay != null) widget.onPlay!();
     _isPlaying ? _stopPlaying() : _startPlaying();
-    setState(() => _isPlaying = !_isPlaying);
+    setState(() {
+      _isPlaying = !_isPlaying;
+      if (!_isPlaying) {
+        if (widget.onStop != null) {
+          widget.onStop!();
+        }
+      }
+    });
   }
 
   @override
